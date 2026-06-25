@@ -1,20 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginPage } from './pages/LoginPage';
 import { AdminPage } from './pages/AdminPage';
 import { AdminRoute } from './pages/AdminRoute';
-import { perfumes } from './data/perfumes';
+import { supabase } from './lib/supabase';
 import './index.css';
 
+interface Perfume {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+}
+
 function AppContent() {
+  const [cartOpen, setCartOpen] = useState(false);
+  const [perfumes, setPerfumes] = useState<Perfume[]>([]);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
+  useEffect(() => {
+    fetchPerfumes();
+  }, []);
+
+  const fetchPerfumes = async () => {
+    const { data } = await supabase.from('perfumes').select('*').order('name');
+    if (data) setPerfumes(data);
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const scrollToSection = (id: string) => {
+    if (location.pathname !== '/') {
+      navigate('/');
+      setTimeout(() => {
+        const element = document.getElementById(id);
+        element?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } else {
+      const element = document.getElementById(id);
+      element?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -56,13 +88,13 @@ function AppContent() {
           <h2>Catálogo</h2>
           <h3>Preguntar si aún está disponible el perfume</h3>
           <div className="perfume-grid">
-            {perfumes.catalogo.map((perfume, index) => (
-              <div key={index} className="perfume-card">
+            {perfumes.map((perfume, index) => (
+              <div key={perfume.id || index} className="perfume-card">
                 <img src={perfume.image} alt={perfume.name} className="perfume-image" />
                 <div className="perfume-info">
                   <h3>{perfume.name}</h3>
                   <p>{perfume.description}</p>
-                  <span className="price">{perfume.price}</span>
+                  <span className="price">${perfume.price.toLocaleString()}</span>
                   <button
                     className="add-to-cart"
                     onClick={() => window.open('https://www.instagram.com/scent.brothersmx/', '_blank')}
@@ -73,6 +105,7 @@ function AppContent() {
               </div>
             ))}
           </div>
+          <h3></h3>
           <h4>Si está interesado en algún perfume mandar mensaje al Instagram o WhatsApp que están en los botones de arriba</h4>
         </section>
       </main>
@@ -90,6 +123,19 @@ function AppContent() {
           </div>
         </div>
       </footer>
+
+      <div className={`cart-drawer ${cartOpen ? 'open' : ''}`}>
+        <div className="cart-header">
+          <span>Carrito</span>
+          <button onClick={() => setCartOpen(false)}>✕</button>
+        </div>
+        <div className="cart-items">
+          <p>El carrito está vacío</p>
+        </div>
+        <div className="cart-footer">
+          <button className="checkout-button">Realizar Pedido</button>
+        </div>
+      </div>
     </>
   );
 }

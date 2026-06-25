@@ -14,27 +14,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isAdminEmail = (email: string): boolean => {
+  const adminEmails = ['admin@scentbrothers.com', 'scentbrothersmx@gmail.com'];
+  return adminEmails.includes(email.toLowerCase());
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (supabaseUser: SupabaseUser): Promise<AuthUser | null> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', supabaseUser.id)
-      .single();
-
-    if (error || !data) {
-      return null;
-    }
-
-    return {
-      id: supabaseUser.id,
-      email: supabaseUser.email || '',
-      role: data.role as UserRole,
-    };
+  const getUserRole = useCallback((supabaseUser: SupabaseUser): UserRole => {
+    return isAdminEmail(supabaseUser.email || '') ? 'admin' : 'user';
   }, []);
 
   useEffect(() => {
@@ -46,8 +37,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setSession(session);
       if (session?.user) {
-        const profile = await fetchProfile(session.user);
-        if (mounted) setUser(profile);
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          role: getUserRole(session.user),
+        });
       }
       setLoading(false);
     };
@@ -59,8 +53,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setSession(session);
       if (session?.user) {
-        const profile = await fetchProfile(session.user);
-        if (mounted) setUser(profile);
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          role: getUserRole(session.user),
+        });
       } else {
         setUser(null);
       }
@@ -75,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [getUserRole]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
